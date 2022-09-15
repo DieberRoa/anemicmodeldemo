@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BaseFile</key>
+	<string>Chapters/Chapter1.playgroundchapter/Pages/Template.playgroundpage/main.swift</string>
+	<key>Diffs</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>import SwiftUI
+import PlaygroundSupport
+
+
+struct Data {
+    
+    var _stuffs : [Models.StuffDB] = []
+    var stuffs : [Models.StuffDB] {
+        get {
+            return _stuffs
+        }
+        
+    }
+    
+    init() {
+        _stuffs.append(Models.StuffDB(id: 1, name: "Uno"))
+        _stuffs.append(Models.StuffDB(id: 2, name: "Dos"))
+        _stuffs.append(Models.StuffDB(id: 3, name: "Tres"))
+        _stuffs.append(Models.StuffDB(id: 4, name: "Cuatro"))
+        _stuffs.append(Models.StuffDB(id: 5, name: "Cinco"))
+    }
+    
+    func get(id: Int) -&gt; Models.StuffDB {
+        return _stuffs.filter { $0.id == id }
+            .first ?? Models.StuffDB(id: 0, name: "")
+    }
+    
+    func put(stuff: Models.StuffDB) -&gt; Bool {
+        return true
+    }
+    
+}
+
+enum StuffError : Error {
+    case convertionError (String)
+    case stuffExistError (String)
+}
+
+struct Models {
+    
+    struct StuffDB {
+        var id: Int
+        var name: String
+    }
+    
+    class StuffBussiness: Identifiable {
+        var stuffId : StuffId
+        var name: String
+        
+        init(stuffId: Models.StuffId, name: String) {
+            self.stuffId = stuffId
+            self.name = name
+        }
+    }
+    
+    class StuffId {
+        
+        private var _value: String
+        
+        init() {
+            self._value = ""
+        }
+        
+        init(_ valueStuffId: Int) throws {
+            self._value = ""
+            self._value = String(valueStuffId)
+        }
+        
+        func getValue() -&gt; Int {
+            return Int(_value) ?? 0
+        }
+        
+    }
+}
+
+extension String {
+    var isNumeric: Bool {
+        return !(self.isEmpty) &amp;&amp; self.allSatisfy { $0.isNumber }
+    }
+    
+    func trimmingAllSpaces(using characterSet: CharacterSet = .whitespacesAndNewlines) -&gt; String {
+        return components(separatedBy: characterSet).joined()
+    }
+}
+
+
+struct Services {
+    
+    class Api {
+        
+        func get() -&gt; [Models.StuffDB] {
+            return Data().stuffs
+        }
+        
+        func get(id: Int) -&gt; Models.StuffDB {
+            return Data().get(id: id)
+        }
+        
+        func put(stuff: Models.StuffDB) -&gt; Bool {
+            return Data().put(stuff: stuff)
+        }
+        
+    }
+    
+    class StuffService {
+        
+        var api : Services.Api = Services.Api()
+        
+        func get() throws -&gt; [Models.StuffBussiness] {
+            
+            return try api.get().map { stuffDb in
+                try Transform.Convert.convert(from: stuffDb)
+            }
+            
+        }
+        
+        func get(stuffId: Models.StuffId) throws -&gt; Models.StuffBussiness {
+            
+            return try Transform.Convert.convert(from: api.get(id: stuffId.getValue()))
+            
+        }
+        
+        func put(stuff: Models.StuffBussiness) throws -&gt; Bool {
+            
+            return api.put(stuff: try Transform.Convert.convert(from: stuff))
+            
+        }
+        
+    }
+    
+    
+}
+
+struct Transform {
+    
+    class Convert {
+        
+        public static func convert(from: Models.StuffDB) throws -&gt; Models.StuffBussiness {
+            print(from.id)
+            return Models.StuffBussiness(stuffId: try Models.StuffId(from.id) ,name: from.name)
+        }
+        
+        public static func convert(from: Models.StuffBussiness) throws -&gt; Models.StuffDB {
+            return Models.StuffDB(id: from.stuffId.getValue(), name: from.name)
+        }
+        
+    }
+}
+
+struct BussinessLayer {
+    
+    
+    class StuffViewModel : ObservableObject {
+        
+        var service : Services.StuffService = Services.StuffService()
+        @Published var stuffs : [Models.StuffBussiness] = []
+        
+        init() {
+            do {
+                stuffs = try service.get()
+            } catch {
+                stuffs = []
+            }
+        }
+        
+        func get(stuffId : Models.StuffId) {
+            do {
+                stuffs = []
+                try stuffs.append(service.get(stuffId: stuffId))
+            } catch {
+                stuffs = []
+            }
+        }
+        
+        func get() {
+            do {
+                stuffs = try service.get()
+            } catch {
+                stuffs = []
+            }
+        }
+        
+    }
+    
+}
+
+struct FrontEnd {
+    
+    struct StuffView : View {
+        @State private var searchText = ""
+        @ObservedObject var stuffViewModel : BussinessLayer.StuffViewModel
+        @Environment(\.isSearching) var isSearching
+        @Environment(\.dismissSearch) var dismissSearch
+        
+        init() {
+            self.stuffViewModel = BussinessLayer.StuffViewModel()
+        }
+        
+        var body : some View {
+            NavigationView {
+                VStack {
+                    Image(systemName: "star.circle").foregroundColor(.green)
+                    List {
+                        ForEach(self.stuffViewModel.stuffs) { stuff in
+                            Text(stuff.name)
+                        }
+                    }
+                }.navigationTitle("Stuffs")
+                .searchable(text: $searchText).onChange(of: searchText) { _ in
+                    if searchText.isEmpty &amp;&amp; !isSearching {
+                        self.stuffViewModel.get()
+                    }else {
+                        let idToSearch = Int(searchText.trimmingAllSpaces()) ?? 0 
+                        self.stuffViewModel.get(stuffId: try! Models.StuffId(idToSearch))
+                    }
+                }
+                
+            }
+        }
+        
+        
+    }
+    
+}
+
+
+PlaygroundPage.current.setLiveView(try FrontEnd.StuffView())
+
+
+
+</string>
+			<key>ModifiedRange</key>
+			<string>{1, 5615}</string>
+			<key>OriginalContent</key>
+			<string></string>
+			<key>OriginalRange</key>
+			<string>{1, 0}</string>
+		</dict>
+	</array>
+	<key>FormatVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

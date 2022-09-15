@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Diffs</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>import SwiftUI
+import PlaygroundSupport
+
+
+// Fuente de Datos
+struct Data {
+    
+    var _stuffs : [Models.Stuff] = []
+    var stuffs : [Models.Stuff] {
+        get {
+            return _stuffs
+        }
+        
+    }
+    
+    init() {
+        _stuffs.append(Models.Stuff(id: 1, name: "Uno"))
+        _stuffs.append(Models.Stuff(id: 2, name: "Dos"))
+        _stuffs.append(Models.Stuff(id: 3, name: "Tres"))
+        _stuffs.append(Models.Stuff(id: 4, name: "Cuatro"))
+        _stuffs.append(Models.Stuff(id: 5, name: "Cinco"))
+    }
+    
+    func get(id: Int) -&gt; Models.Stuff {
+        return _stuffs.filter { $0.id == id }
+            .first ?? Models.Stuff(id: 0, name: "")
+    }
+    
+    func put(stuff: Models.Stuff) -&gt; Bool {
+        return true
+    }
+    
+}
+
+// 1. Entidad 
+struct Models {
+    
+    struct Stuff : Identifiable {
+        var id: Int
+        var name: String
+    }
+    
+}
+
+// 2- Servicio
+struct Services {
+    
+    class Api {
+        
+        func get() -&gt; [Models.Stuff] {
+            return Data().stuffs
+        }
+        
+        func get(id: Int) -&gt; Models.Stuff {
+            return Data().get(id: id)
+        }
+        
+        func put(stuff: Models.Stuff) -&gt; Bool {
+            return Data().put(stuff: stuff)
+        }
+        
+    }
+    
+}
+
+struct BussinessLayer {
+    
+    class StuffViewModel : ObservableObject {
+        
+        var api : Services.Api = Services.Api()
+        @Published var stuffs : [Models.Stuff] = []
+        
+        init(){
+            stuffs = api.get()
+        }
+        
+        func get(id: Int) {
+            stuffs = [] 
+            stuffs.append(api.get(id:id))
+        }
+        
+        func get() {
+            stuffs = api.get()
+        }
+        
+    }
+    
+}
+
+struct FrontEnd {
+    
+    struct StuffView : View {
+        @State private var searchText = ""
+        @ObservedObject var stuffViewModel : BussinessLayer.StuffViewModel =  BussinessLayer.StuffViewModel()
+        @Environment(\.isSearching) var isSearching
+        @Environment(\.dismissSearch) var dismissSearch
+        
+        var body : some View {
+            NavigationView {
+                VStack {
+                    List {
+                        ForEach(self.stuffViewModel.stuffs) { stuff in
+                            Text(stuff.name)
+                        }
+                    }
+                }.navigationTitle("Stuffs")
+                .searchable(text: $searchText).onChange(of: searchText) { value in
+                    if searchText.isEmpty &amp;&amp; !isSearching {
+                        self.stuffViewModel.get()
+                    }else {
+                        self.stuffViewModel.get(id: Int(searchText) ?? 0)
+                    }
+                }
+                
+            }
+        }
+        
+        
+    }
+    
+}
+
+PlaygroundPage.current.setLiveView(FrontEnd.StuffView())
+
+
+</string>
+			<key>ModifiedRange</key>
+			<string>{0, 2842}</string>
+			<key>OriginalContent</key>
+			<string></string>
+			<key>OriginalRange</key>
+			<string>{0, 0}</string>
+		</dict>
+	</array>
+	<key>FormatVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>
